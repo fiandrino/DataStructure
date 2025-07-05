@@ -66,8 +66,9 @@ namespace Benchmark
             PrintArray("Stringhe", stringArray);
 
             // 6. Test di grandi dimensioni
-            Console.WriteLine("\nTest array grande (1,000,000 elementi):");
+            Console.WriteLine("\nTest array grande (2,000,000 elementi):");
             TestLargeArray();
+            Console.ReadLine();
         }
 
         static void PrintArray<T>(string name, DynamicArray<T> array)
@@ -138,7 +139,7 @@ namespace Benchmark
 
         static void TestLargeArray()
         {
-            const int Size = 1_000_000;
+            const int Size = 2_000_000;
             var array = new DynamicArray<int>();
 
             // Popolamento
