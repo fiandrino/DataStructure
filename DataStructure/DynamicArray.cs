@@ -6,31 +6,31 @@ using System.Linq;
 namespace DataStructure
 {
     /// <summary>
-    /// Array dinamico con funzionalità avanzate di manipolazione, ricerca e gestione della capacità.
-    /// Supporta operazioni simili a List<T> con ottimizzazioni aggiuntive.
+    /// Dynamic array with advanced manipulation, search and capacity management features.
+    /// Supports operations similar to List<T> with additional optimizations.
     /// </summary>
-    /// <typeparam name="T">Tipo degli elementi nell'array</typeparam>
+    /// <typeparam name="T">Element type in the array</typeparam>
     public class DynamicArray<T> : IEnumerable<T>
     {
-        #region Costanti e campi interni
-        private const int GrowthFactor = 2;           // Fattore di crescita quando si espande
-        private const double ShrinkThreshold = 0.25;  // Soglia per la riduzione della capacità
+        #region Constants and internal fields
+        private const int GrowthFactor = 2;           // Growth factor when expanding
+        private const double ShrinkThreshold = 0.25;  // Threshold for capacity reduction
 
-        private T[] _buffer;                         // Buffer interno per l'archiviazione
+        private T[] _buffer;                         // Internal storage buffer
         #endregion
 
-        #region Proprietà pubbliche
-        /// <summary>Capacità corrente dell'array</summary>
+        #region Public properties
+        /// <summary>Current array capacity</summary>
         public int Capacity { get; private set; }
 
-        /// <summary>Numero di elementi effettivamente presenti</summary>
+        /// <summary>Actual number of elements present</summary>
         public int Count { get; private set; }
         #endregion
 
-        #region Costruttori e inizializzazione
-        /// <summary>Crea un nuovo array dinamico con capacità iniziale</summary>
-        /// <param name="capacity">Capacità iniziale (default: 4)</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se la capacità è ≤ 0</exception>
+        #region Constructors and initialization
+        /// <summary>Creates a new dynamic array with initial capacity</summary>
+        /// <param name="capacity">Initial capacity (default: 4)</param>
+        /// <exception cref="ArgumentOutOfRangeException">If capacity is ≤ 0</exception>
         public DynamicArray(int capacity = 4)
         {
             if (capacity <= 0)
@@ -40,23 +40,23 @@ namespace DataStructure
             Capacity = capacity;
         }
 
-        /// <summary>Crea un nuovo array dinamico da una collezione esistente</summary>
-        /// <param name="collection">Collezione di elementi da aggiungere</param>
+        /// <summary>Creates a new dynamic array from an existing collection</summary>
+        /// <param name="collection">Collection of elements to add</param>
         public DynamicArray(IEnumerable<T> collection) : this()
         {
             AddRange(collection);
         }
         #endregion
 
-        #region Metodi factory per creazione casuale
+        #region Factory methods for random creation
         /// <summary>
-        /// Crea un nuovo array con elementi numerici casuali
+        /// Creates a new array with random numeric elements
         /// </summary>
-        /// <param name="count">Numero di elementi da generare</param>
-        /// <param name="minValue">Valore minimo (incluso)</param>
-        /// <param name="maxValue">Valore massimo (escluso)</param>
-        /// <param name="rng">Generatore di numeri casuali (opzionale)</param>
-        /// <exception cref="InvalidOperationException">Se il tipo non è supportato</exception>
+        /// <param name="count">Number of elements to generate</param>
+        /// <param name="minValue">Minimum value (inclusive)</param>
+        /// <param name="maxValue">Maximum value (exclusive)</param>
+        /// <param name="rng">Random number generator (optional)</param>
+        /// <exception cref="InvalidOperationException">If type is not supported</exception>
         public static DynamicArray<T> CreateRandom(
             int count,
             double minValue = 0,
@@ -64,7 +64,7 @@ namespace DataStructure
             Random rng = null)
         {
             if (!IsNumericType(typeof(T)))
-                throw new InvalidOperationException("Tipo non numerico non supportato");
+                throw new InvalidOperationException("Non-numeric type not supported");
 
             rng ??= new Random();
             var array = new DynamicArray<T>(count);
@@ -79,13 +79,13 @@ namespace DataStructure
         }
 
         /// <summary>
-        /// Crea un nuovo array con stringhe casuali (solo per T = string)
+        /// Creates a new array with random strings (only for T = string)
         /// </summary>
-        /// <param name="count">Numero di stringhe da generare</param>
-        /// <param name="minLength">Lunghezza minima stringa (default: 1)</param>
-        /// <param name="maxLength">Lunghezza massima stringa (default: 20)</param>
-        /// <param name="rng">Generatore di numeri casuali (opzionale)</param>
-        /// <exception cref="InvalidOperationException">Se T non è string</exception>
+        /// <param name="count">Number of strings to generate</param>
+        /// <param name="minLength">Minimum string length (default: 1)</param>
+        /// <param name="maxLength">Maximum string length (default: 20)</param>
+        /// <param name="rng">Random number generator (optional)</param>
+        /// <exception cref="InvalidOperationException">If T is not string</exception>
         public static DynamicArray<T> CreateRandomStrings(
             int count,
             int minLength = 1,
@@ -93,7 +93,7 @@ namespace DataStructure
             Random rng = null)
         {
             if (typeof(T) != typeof(string))
-                throw new InvalidOperationException("Il metodo è valido solo per stringhe");
+                throw new InvalidOperationException("Method valid only for strings");
 
             rng ??= new Random();
             var array = new DynamicArray<T>(count);
@@ -112,17 +112,17 @@ namespace DataStructure
         }
         #endregion
 
-        #region Operazioni di aggiunta
-        /// <summary>Aggiunge un elemento alla fine dell'array</summary>
-        /// <param name="value">Elemento da aggiungere</param>
+        #region Add operations
+        /// <summary>Adds an element to the end of the array</summary>
+        /// <param name="value">Element to add</param>
         public void Add(T value)
         {
             EnsureSpace(1);
             _buffer[Count++] = value;
         }
 
-        /// <summary>Aggiunge una sequenza di elementi da uno span</summary>
-        /// <param name="values">Elementi da aggiungere</param>
+        /// <summary>Adds a sequence of elements from a span</summary>
+        /// <param name="values">Elements to add</param>
         public void AddRange(ReadOnlySpan<T> values)
         {
             if (values.IsEmpty) return;
@@ -132,15 +132,15 @@ namespace DataStructure
             Count += values.Length;
         }
 
-        /// <summary>Aggiunge una sequenza di elementi da un'enumerabile</summary>
-        /// <param name="values">Elementi da aggiungere</param>
-        /// <exception cref="ArgumentNullException">Se values è null</exception>
+        /// <summary>Adds a sequence of elements from an enumerable</summary>
+        /// <param name="values">Elements to add</param>
+        /// <exception cref="ArgumentNullException">If values is null</exception>
         public void AddRange(IEnumerable<T> values)
         {
             if (values == null)
                 throw new ArgumentNullException(nameof(values));
 
-            // Ottimizzazione per collezioni con dimensioni note
+            // Optimization for collections with known size
             if (values is ICollection<T> collection)
             {
                 EnsureSpace(collection.Count);
@@ -155,11 +155,11 @@ namespace DataStructure
         }
         #endregion
 
-        #region Operazioni di inserimento
-        /// <summary>Inserisce un elemento alla posizione specificata</summary>
-        /// <param name="index">Indice di inserimento</param>
-        /// <param name="value">Elemento da inserire</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se l'indice è fuori range</exception>
+        #region Insert operations
+        /// <summary>Inserts an element at the specified position</summary>
+        /// <param name="index">Insertion index</param>
+        /// <param name="value">Element to insert</param>
+        /// <exception cref="ArgumentOutOfRangeException">If index is out of range</exception>
         public void Insert(int index, T value)
         {
             if (index < 0 || index > Count)
@@ -167,7 +167,7 @@ namespace DataStructure
 
             EnsureSpace(1);
 
-            // Sposta gli elementi per creare spazio
+            // Shift elements to make space
             if (index < Count)
                 _buffer.AsSpan(index, Count - index).CopyTo(_buffer.AsSpan(index + 1));
 
@@ -175,11 +175,11 @@ namespace DataStructure
             Count++;
         }
 
-        /// <summary>Inserisce una sequenza di elementi alla posizione specificata</summary>
-        /// <param name="index">Indice di partenza</param>
-        /// <param name="items">Elementi da inserire</param>
-        /// <exception cref="ArgumentNullException">Se items è null</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Se l'indice è fuori range</exception>
+        /// <summary>Inserts a sequence of elements at the specified position</summary>
+        /// <param name="index">Starting index</param>
+        /// <param name="items">Elements to insert</param>
+        /// <exception cref="ArgumentNullException">If items is null</exception>
+        /// <exception cref="ArgumentOutOfRangeException">If index is out of range</exception>
         public void InsertRange(int index, IEnumerable<T> items)
         {
             if (items == null)
@@ -187,13 +187,13 @@ namespace DataStructure
             if (index < 0 || index > Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            // Ottimizzazione per collezioni con dimensioni note
+            // Optimization for collections with known size
             if (items is ICollection<T> collection)
             {
                 int newItemsCount = collection.Count;
                 EnsureSpace(newItemsCount);
 
-                // Sposta gli elementi esistenti
+                // Shift existing elements
                 if (Count > index)
                     Array.Copy(_buffer, index, _buffer, index + newItemsCount, Count - index);
 
@@ -208,31 +208,31 @@ namespace DataStructure
         }
         #endregion
 
-        #region Operazioni di rimozione
-        /// <summary>Rimuove l'elemento alla posizione specificata</summary>
-        /// <param name="index">Indice dell'elemento da rimuovere</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se l'indice è fuori range</exception>
+        #region Remove operations
+        /// <summary>Removes the element at the specified position</summary>
+        /// <param name="index">Index of element to remove</param>
+        /// <exception cref="ArgumentOutOfRangeException">If index is out of range</exception>
         public void RemoveAt(int index)
         {
             if (index < 0 || index >= Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            // Sposta gli elementi successivi
+            // Shift subsequent elements
             if (index < Count - 1)
                 _buffer.AsSpan(index + 1, Count - index - 1).CopyTo(_buffer.AsSpan(index));
 
             Count--;
 
-            // Pulisci riferimento per evitare memory leak
+            // Clear reference to prevent memory leak
             if (!typeof(T).IsValueType)
                 _buffer[Count] = default;
 
             MaybeShrink();
         }
 
-        /// <summary>Rimuove la prima occorrenza dell'elemento specificato</summary>
-        /// <param name="item">Elemento da rimuovere</param>
-        /// <returns>True se trovato e rimosso, altrimenti false</returns>
+        /// <summary>Removes the first occurrence of the specified element</summary>
+        /// <param name="item">Element to remove</param>
+        /// <returns>True if found and removed, otherwise false</returns>
         public bool Remove(T item)
         {
             int index = IndexOf(item);
@@ -244,23 +244,23 @@ namespace DataStructure
             return false;
         }
 
-        /// <summary>Rimuove e restituisce l'ultimo elemento</summary>
-        /// <returns>Ultimo elemento rimosso</returns>
-        /// <exception cref="InvalidOperationException">Se l'array è vuoto</exception>
+        /// <summary>Removes and returns the last element</summary>
+        /// <returns>Removed last element</returns>
+        /// <exception cref="InvalidOperationException">If array is empty</exception>
         public T RemoveLast()
         {
             if (Count == 0)
-                throw new InvalidOperationException("Array vuoto");
+                throw new InvalidOperationException("Empty array");
 
             T last = _buffer[Count - 1];
             RemoveAt(Count - 1);
             return last;
         }
 
-        /// <summary>Rimuove un intervallo di elementi</summary>
-        /// <param name="startIndex">Indice di inizio</param>
-        /// <param name="endIndex">Indice di fine (incluso)</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se gli indici sono non validi</exception>
+        /// <summary>Removes a range of elements</summary>
+        /// <param name="startIndex">Start index</param>
+        /// <param name="endIndex">End index (inclusive)</param>
+        /// <exception cref="ArgumentOutOfRangeException">If indices are invalid</exception>
         public void RemoveRange(int startIndex, int endIndex)
         {
             if (startIndex < 0 || startIndex >= Count)
@@ -268,35 +268,35 @@ namespace DataStructure
             if (endIndex < 0 || endIndex >= Count)
                 throw new ArgumentOutOfRangeException(nameof(endIndex));
             if (startIndex > endIndex)
-                throw new ArgumentException("startIndex deve essere ≤ endIndex", nameof(startIndex));
+                throw new ArgumentException("startIndex must be ≤ endIndex", nameof(startIndex));
 
             int removeCount = endIndex - startIndex + 1;
             int tailCount = Count - endIndex - 1;
 
-            // Sposta gli elementi successivi
+            // Shift subsequent elements
             if (tailCount > 0)
                 _buffer.AsSpan(endIndex + 1, tailCount).CopyTo(_buffer.AsSpan(startIndex));
 
             Count -= removeCount;
 
-            // Pulisci riferimenti
+            // Clear references
             if (!typeof(T).IsValueType)
                 Array.Clear(_buffer, Count, removeCount);
 
             MaybeShrink();
         }
 
-        /// <summary>Rimuove tutti gli elementi che soddisfano una condizione</summary>
-        /// <param name="match">Predicato per filtrare gli elementi</param>
-        /// <returns>Numero di elementi rimossi</returns>
-        /// <exception cref="ArgumentNullException">Se match è null</exception>
+        /// <summary>Removes all elements that satisfy a condition</summary>
+        /// <param name="match">Predicate to filter elements</param>
+        /// <returns>Number of removed elements</returns>
+        /// <exception cref="ArgumentNullException">If match is null</exception>
         public int RemoveAll(Predicate<T> match)
         {
             if (match == null)
                 throw new ArgumentNullException(nameof(match));
 
             int freeIndex = 0;
-            // Filtra gli elementi da mantenere
+            // Filter elements to keep
             for (int i = 0; i < Count; i++)
             {
                 if (!match(_buffer[i]))
@@ -308,7 +308,7 @@ namespace DataStructure
             int removed = Count - freeIndex;
             if (removed > 0)
             {
-                // Pulisci gli elementi rimossi
+                // Clear removed elements
                 if (!typeof(T).IsValueType)
                     Array.Clear(_buffer, freeIndex, removed);
 
@@ -318,7 +318,7 @@ namespace DataStructure
             return removed;
         }
 
-        /// <summary>Svuota completamente l'array</summary>
+        /// <summary>Completely clears the array</summary>
         public void Clear()
         {
             if (!typeof(T).IsValueType)
@@ -328,9 +328,9 @@ namespace DataStructure
         }
         #endregion
 
-        #region Operazioni matematiche
-        /// <summary>Calcola la somma degli elementi</summary>
-        /// <returns>Somma convertita in double</returns>
+        #region Mathematical operations
+        /// <summary>Calculates the sum of elements</summary>
+        /// <returns>Sum converted to double</returns>
         public double Sum()
         {
             double acc = 0;
@@ -339,25 +339,25 @@ namespace DataStructure
             return acc;
         }
 
-        /// <summary>Calcola la media degli elementi</summary>
-        /// <returns>Media degli elementi</returns>
-        /// <exception cref="InvalidOperationException">Se l'array è vuoto</exception>
+        /// <summary>Calculates the average of elements</summary>
+        /// <returns>Average of elements</returns>
+        /// <exception cref="InvalidOperationException">If array is empty</exception>
         public double Average()
         {
             if (Count == 0)
-                throw new InvalidOperationException("Array vuoto.");
+                throw new InvalidOperationException("Empty array.");
 
             return Sum() / Count;
         }
 
-        /// <summary>Trova l'elemento minimo</summary>
-        /// <param name="comparer">Comparatore personalizzato (opzionale)</param>
-        /// <returns>Elemento minimo</returns>
-        /// <exception cref="InvalidOperationException">Se l'array è vuoto</exception>
+        /// <summary>Finds the minimum element</summary>
+        /// <param name="comparer">Custom comparer (optional)</param>
+        /// <returns>Minimum element</returns>
+        /// <exception cref="InvalidOperationException">If array is empty</exception>
         public T Min(IComparer<T> comparer = null)
         {
             if (Count == 0)
-                throw new InvalidOperationException("Array vuoto.");
+                throw new InvalidOperationException("Empty array.");
 
             comparer ??= Comparer<T>.Default;
             T min = _buffer[0];
@@ -369,14 +369,14 @@ namespace DataStructure
             return min;
         }
 
-        /// <summary>Trova l'elemento massimo</summary>
-        /// <param name="comparer">Comparatore personalizzato (opzionale)</param>
-        /// <returns>Elemento massimo</returns>
-        /// <exception cref="InvalidOperationException">Se l'array è vuoto</exception>
+        /// <summary>Finds the maximum element</summary>
+        /// <param name="comparer">Custom comparer (optional)</param>
+        /// <returns>Maximum element</returns>
+        /// <exception cref="InvalidOperationException">If array is empty</exception>
         public T Max(IComparer<T> comparer = null)
         {
             if (Count == 0)
-                throw new InvalidOperationException("Array vuoto.");
+                throw new InvalidOperationException("Empty array.");
 
             comparer ??= Comparer<T>.Default;
             T max = _buffer[0];
@@ -388,13 +388,13 @@ namespace DataStructure
             return max;
         }
 
-        /// <summary>Calcola la mediana degli elementi</summary>
-        /// <returns>Elemento mediano</returns>
-        /// <exception cref="InvalidOperationException">Se l'array è vuoto</exception>
+        /// <summary>Calculates the median of elements</summary>
+        /// <returns>Median element</returns>
+        /// <exception cref="InvalidOperationException">If array is empty</exception>
         public T Median()
         {
             if (Count == 0)
-                throw new InvalidOperationException("Array vuoto.");
+                throw new InvalidOperationException("Empty array.");
 
             var copy = new T[Count];
             Array.Copy(_buffer, copy, Count);
@@ -403,26 +403,26 @@ namespace DataStructure
         }
         #endregion
 
-        #region Ordinamento e inversione
-        /// <summary>Ordina gli elementi</summary>
-        /// <param name="comparer">Comparatore personalizzato (opzionale)</param>
+        #region Sorting and reversing
+        /// <summary>Sorts the elements</summary>
+        /// <param name="comparer">Custom comparer (optional)</param>
         public void Sort(IComparer<T> comparer = null)
         {
             comparer ??= Comparer<T>.Default;
             Array.Sort(_buffer, 0, Count, comparer);
         }
 
-        /// <summary>Inverte l'ordine degli elementi</summary>
+        /// <summary>Reverses the order of elements</summary>
         public void Reverse() => Reverse(0, Count - 1);
         #endregion
 
-        #region Ricerca e ricerca avanzata
-        /// <summary>Trova l'indice della prima occorrenza di un elemento</summary>
-        /// <param name="item">Elemento da cercare</param>
-        /// <param name="start">Indice di partenza</param>
-        /// <param name="comparer">Comparatore di uguaglianza (opzionale)</param>
-        /// <returns>Indice dell'elemento o -1 se non trovato</returns>
-        /// <exception cref="ArgumentOutOfRangeException">Se start è fuori range</exception>
+        #region Search and advanced search
+        /// <summary>Finds the index of the first occurrence of an element</summary>
+        /// <param name="item">Element to search</param>
+        /// <param name="start">Starting index</param>
+        /// <param name="comparer">Equality comparer (optional)</param>
+        /// <returns>Element index or -1 if not found</returns>
+        /// <exception cref="ArgumentOutOfRangeException">If start is out of range</exception>
         public int IndexOf(T item, int start = 0, IEqualityComparer<T> comparer = null)
         {
             if (start < 0 || start >= Count)
@@ -437,10 +437,10 @@ namespace DataStructure
             return -1;
         }
 
-        /// <summary>Trova l'indice dell'ultima occorrenza di un elemento</summary>
-        /// <param name="item">Elemento da cercare</param>
-        /// <param name="comparer">Comparatore di uguaglianza (opzionale)</param>
-        /// <returns>Indice dell'elemento o -1 se non trovato</returns>
+        /// <summary>Finds the index of the last occurrence of an element</summary>
+        /// <param name="item">Element to search</param>
+        /// <param name="comparer">Equality comparer (optional)</param>
+        /// <returns>Element index or -1 if not found</returns>
         public int LastIndexOf(T item, IEqualityComparer<T> comparer = null)
         {
             comparer ??= EqualityComparer<T>.Default;
@@ -452,32 +452,32 @@ namespace DataStructure
             return -1;
         }
 
-        /// <summary>Verifica se un elemento è presente</summary>
-        /// <param name="item">Elemento da cercare</param>
-        /// <returns>True se trovato, altrimenti false</returns>
+        /// <summary>Checks if an element is present</summary>
+        /// <param name="item">Element to search</param>
+        /// <returns>True if found, otherwise false</returns>
         public bool Contains(T item) => Contains(item, null);
 
-        /// <summary>Verifica se un elemento è presente usando un comparatore specifico</summary>
-        /// <param name="item">Elemento da cercare</param>
-        /// <param name="comparer">Comparatore di uguaglianza (opzionale)</param>
-        /// <returns>True se trovato, altrimenti false</returns>
+        /// <summary>Checks if an element is present using a specific comparer</summary>
+        /// <param name="item">Element to search</param>
+        /// <param name="comparer">Equality comparer (optional)</param>
+        /// <returns>True if found, otherwise false</returns>
         public bool Contains(T item, IEqualityComparer<T> comparer)
             => IndexOf(item, 0, comparer) != -1;
 
-        /// <summary>Ricerca binaria di un elemento ordinato</summary>
-        /// <param name="item">Elemento da cercare</param>
-        /// <param name="comparer">Comparatore per l'ordinamento (opzionale)</param>
-        /// <returns>Indice dell'elemento o complemento a 2 se non trovato</returns>
+        /// <summary>Binary search for a sorted element</summary>
+        /// <param name="item">Element to search</param>
+        /// <param name="comparer">Sorting comparer (optional)</param>
+        /// <returns>Element index or two's complement if not found</returns>
         public int BinarySearch(T item, IComparer<T> comparer = null)
         {
             comparer ??= Comparer<T>.Default;
             return Array.BinarySearch(_buffer, 0, Count, item, comparer);
         }
 
-        /// <summary>Trova il primo elemento che soddisfa una condizione</summary>
-        /// <param name="match">Predicato per filtrare gli elementi</param>
-        /// <returns>Elemento trovato o default(T) se non trovato</returns>
-        /// <exception cref="ArgumentNullException">Se match è null</exception>
+        /// <summary>Finds the first element that satisfies a condition</summary>
+        /// <param name="match">Predicate to filter elements</param>
+        /// <returns>Found element or default(T) if not found</returns>
+        /// <exception cref="ArgumentNullException">If match is null</exception>
         public T Find(Predicate<T> match)
         {
             if (match == null)
@@ -490,10 +490,10 @@ namespace DataStructure
             return default;
         }
 
-        /// <summary>Trova tutti gli elementi che soddisfano una condizione</summary>
-        /// <param name="match">Predicato per filtrare gli elementi</param>
-        /// <returns>Nuovo array dinamico con gli elementi trovati</returns>
-        /// <exception cref="ArgumentNullException">Se match è null</exception>
+        /// <summary>Finds all elements that satisfy a condition</summary>
+        /// <param name="match">Predicate to filter elements</param>
+        /// <returns>New dynamic array with found elements</returns>
+        /// <exception cref="ArgumentNullException">If match is null</exception>
         public DynamicArray<T> FindAll(Predicate<T> match)
         {
             if (match == null)
@@ -507,12 +507,12 @@ namespace DataStructure
             return result;
         }
 
-        /// <summary>Trova l'indice del primo elemento che soddisfa una condizione</summary>
-        /// <param name="match">Predicato per filtrare gli elementi</param>
-        /// <param name="startIndex">Indice di partenza</param>
-        /// <returns>Indice dell'elemento o -1 se non trovato</returns>
-        /// <exception cref="ArgumentNullException">Se match è null</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Se startIndex è fuori range</exception>
+        /// <summary>Finds the index of the first element that satisfies a condition</summary>
+        /// <param name="match">Predicate to filter elements</param>
+        /// <param name="startIndex">Starting index</param>
+        /// <returns>Element index or -1 if not found</returns>
+        /// <exception cref="ArgumentNullException">If match is null</exception>
+        /// <exception cref="ArgumentOutOfRangeException">If startIndex is out of range</exception>
         public int FindIndex(Predicate<T> match, int startIndex = 0)
         {
             if (match == null)
@@ -527,10 +527,10 @@ namespace DataStructure
             return -1;
         }
 
-        /// <summary>Trova l'indice dell'ultimo elemento che soddisfa una condizione</summary>
-        /// <param name="match">Predicato per filtrare gli elementi</param>
-        /// <returns>Indice dell'elemento o -1 se non trovato</returns>
-        /// <exception cref="ArgumentNullException">Se match è null</exception>
+        /// <summary>Finds the index of the last element that satisfies a condition</summary>
+        /// <param name="match">Predicate to filter elements</param>
+        /// <returns>Element index or -1 if not found</returns>
+        /// <exception cref="ArgumentNullException">If match is null</exception>
         public int FindLastIndex(Predicate<T> match)
         {
             if (match == null)
@@ -544,8 +544,8 @@ namespace DataStructure
         }
         #endregion
 
-        #region Iterazione ed enumerazione
-        /// <summary>Restituisce un enumeratore per scorrere gli elementi</summary>
+        #region Iteration and enumeration
+        /// <summary>Returns an enumerator to iterate through elements</summary>
         public IEnumerator<T> GetEnumerator()
         {
             for (int i = 0; i < Count; i++)
@@ -554,9 +554,9 @@ namespace DataStructure
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        /// <summary>Esegue un'azione per ogni elemento</summary>
-        /// <param name="action">Azione da eseguire</param>
-        /// <exception cref="ArgumentNullException">Se action è null</exception>
+        /// <summary>Executes an action for each element</summary>
+        /// <param name="action">Action to execute</param>
+        /// <exception cref="ArgumentNullException">If action is null</exception>
         public void ForEach(Action<T> action)
         {
             if (action == null)
@@ -567,8 +567,8 @@ namespace DataStructure
         }
         #endregion
 
-        #region Utilità e operazioni varie
-        /// <summary>Crea un array statico con gli elementi correnti</summary>
+        #region Utilities and miscellaneous operations
+        /// <summary>Creates a static array with current elements</summary>
         public T[] ToArray()
         {
             var result = new T[Count];
@@ -576,10 +576,10 @@ namespace DataStructure
             return result;
         }
 
-        /// <summary>Scambia due elementi per posizione</summary>
-        /// <param name="i">Indice del primo elemento</param>
-        /// <param name="j">Indice del secondo elemento</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se gli indici sono fuori range</exception>
+        /// <summary>Swaps two elements by position</summary>
+        /// <param name="i">Index of first element</param>
+        /// <param name="j">Index of second element</param>
+        /// <exception cref="ArgumentOutOfRangeException">If indices are out of range</exception>
         public void Swap(int i, int j)
         {
             if (i < 0 || i >= Count || j < 0 || j >= Count)
@@ -588,8 +588,8 @@ namespace DataStructure
             (_buffer[i], _buffer[j]) = (_buffer[j], _buffer[i]);
         }
 
-        /// <summary>Mischia casualmente gli elementi</summary>
-        /// <param name="rng">Generatore di numeri casuali (opzionale)</param>
+        /// <summary>Shuffles elements randomly</summary>
+        /// <param name="rng">Random number generator (optional)</param>
         public void Shuffle(Random rng = null)
         {
             rng ??= new Random();
@@ -600,15 +600,15 @@ namespace DataStructure
             }
         }
 
-        /// <summary>Riduce la capacità se eccede la soglia specificata</summary>
-        /// <param name="threshold">Soglia di utilizzo (default: 90%)</param>
+        /// <summary>Reduces capacity if it exceeds the specified threshold</summary>
+        /// <param name="threshold">Usage threshold (default: 90%)</param>
         public void TrimExcess(double threshold = 0.9)
         {
             if (Count < Capacity * threshold)
                 ResizeBuffer(Count);
         }
 
-        /// <summary>Crea una copia superficiale dell'array</summary>
+        /// <summary>Creates a shallow copy of the array</summary>
         public DynamicArray<T> Clone()
         {
             var clone = new DynamicArray<T>(Capacity);
@@ -616,11 +616,11 @@ namespace DataStructure
             return clone;
         }
 
-        /// <summary>Converte tutti gli elementi in un altro tipo</summary>
-        /// <typeparam name="TOutput">Tipo di output</typeparam>
-        /// <param name="converter">Funzione di conversione</param>
-        /// <returns>Nuovo array convertito</returns>
-        /// <exception cref="ArgumentNullException">Se converter è null</exception>
+        /// <summary>Converts all elements to another type</summary>
+        /// <typeparam name="TOutput">Output type</typeparam>
+        /// <param name="converter">Conversion function</param>
+        /// <returns>New converted array</returns>
+        /// <exception cref="ArgumentNullException">If converter is null</exception>
         public DynamicArray<TOutput> ConvertAll<TOutput>(Converter<T, TOutput> converter)
         {
             if (converter == null)
@@ -633,10 +633,10 @@ namespace DataStructure
             return result;
         }
 
-        /// <summary>Sposta un elemento da una posizione a un'altra</summary>
-        /// <param name="fromIndex">Posizione originale</param>
-        /// <param name="toIndex">Posizione di destinazione</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se gli indici sono fuori range</exception>
+        /// <summary>Moves an element from one position to another</summary>
+        /// <param name="fromIndex">Original position</param>
+        /// <param name="toIndex">Destination position</param>
+        /// <exception cref="ArgumentOutOfRangeException">If indices are out of range</exception>
         public void Move(int fromIndex, int toIndex)
         {
             if (fromIndex < 0 || fromIndex >= Count)
@@ -649,10 +649,10 @@ namespace DataStructure
             Insert(toIndex, item);
         }
 
-        /// <summary>Sostituisce tutte le occorrenze di un valore</summary>
-        /// <param name="oldValue">Valore da sostituire</param>
-        /// <param name="newValue">Nuovo valore</param>
-        /// <param name="comparer">Comparatore per l'identificazione (opzionale)</param>
+        /// <summary>Replaces all occurrences of a value</summary>
+        /// <param name="oldValue">Value to replace</param>
+        /// <param name="newValue">New value</param>
+        /// <param name="comparer">Identification comparer (optional)</param>
         public void Replace(T oldValue, T newValue, IEqualityComparer<T> comparer = null)
         {
             comparer ??= EqualityComparer<T>.Default;
@@ -662,21 +662,21 @@ namespace DataStructure
         }
         #endregion
 
-        #region Gestione capacità
-        /// <summary>Garantisce una capacità minima</summary>
-        /// <param name="newCapacity">Nuova capacità minima</param>
+        #region Capacity management
+        /// <summary>Ensures a minimum capacity</summary>
+        /// <param name="newCapacity">New minimum capacity</param>
         public void EnsureCapacity(int newCapacity)
         {
             if (newCapacity > Capacity)
                 ResizeBuffer(newCapacity);
         }
 
-        /// <summary>Riduce la capacità al numero effettivo di elementi</summary>
+        /// <summary>Reduces capacity to the actual number of elements</summary>
         public void Compact() => ResizeBuffer(Count);
 
-        /// <summary>Ridimensiona l'array mantenendo gli elementi</summary>
-        /// <param name="newSize">Nuova dimensione dell'array</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se newSize è negativo</exception>
+        /// <summary>Resizes the array while preserving elements</summary>
+        /// <param name="newSize">New array size</param>
+        /// <exception cref="ArgumentOutOfRangeException">If newSize is negative</exception>
         public void Resize(int newSize)
         {
             if (newSize < 0)
@@ -685,7 +685,7 @@ namespace DataStructure
             if (newSize > Capacity)
                 ResizeBuffer(newSize);
 
-            // Pulisci gli elementi rimossi
+            // Clear removed elements
             if (newSize < Count && !typeof(T).IsValueType)
                 Array.Clear(_buffer, newSize, Count - newSize);
 
@@ -693,20 +693,20 @@ namespace DataStructure
         }
         #endregion
 
-        #region Manipolazioni avanzate
-        /// <summary>Ruota gli elementi di un numero specificato di posizioni</summary>
-        /// <param name="steps">Numero di posizioni (positivo: destra, negativo: sinistra)</param>
-        /// <returns>Numero effettivo di passi eseguiti</returns>
+        #region Advanced manipulations
+        /// <summary>Rotates elements by a specified number of positions</summary>
+        /// <param name="steps">Number of positions (positive: right, negative: left)</param>
+        /// <returns>Actual number of steps performed</returns>
         public int Rotate(int steps)
         {
             if (Count == 0) return 0;
 
-            // Normalizza i passi
+            // Normalize steps
             steps %= Count;
             if (steps == 0) return 0;
             if (steps < 0) steps += Count;
 
-            // Algoritmo di rotazione efficiente con tre inversioni
+            // Efficient rotation algorithm with three reversals
             Reverse(0, Count - 1);
             Reverse(0, steps - 1);
             Reverse(steps, Count - 1);
@@ -714,13 +714,13 @@ namespace DataStructure
             return steps;
         }
 
-        /// <summary>Inverte l'ordine di tutti gli elementi</summary>
+        /// <summary>Reverses the order of all elements</summary>
         public void Flip() => Flip(0, Count - 1);
 
-        /// <summary>Inverte l'ordine degli elementi in un intervallo</summary>
-        /// <param name="start">Indice di inizio</param>
-        /// <param name="end">Indice di fine (incluso)</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se gli indici sono non validi</exception>
+        /// <summary>Reverses the order of elements in a range</summary>
+        /// <param name="start">Start index</param>
+        /// <param name="end">End index (inclusive)</param>
+        /// <exception cref="ArgumentOutOfRangeException">If indices are invalid</exception>
         public void Flip(int start, int end)
         {
             if (Count <= 1) return;
@@ -733,11 +733,11 @@ namespace DataStructure
         }
         #endregion
 
-        #region Operazioni su insiemi
-        /// <summary>Aggiunge un elemento solo se non è già presente</summary>
-        /// <param name="item">Elemento da aggiungere</param>
-        /// <param name="comparer">Comparatore per l'uguaglianza (opzionale)</param>
-        /// <returns>True se aggiunto, false se già presente</returns>
+        #region Set operations
+        /// <summary>Adds an element only if not already present</summary>
+        /// <param name="item">Element to add</param>
+        /// <param name="comparer">Equality comparer (optional)</param>
+        /// <returns>True if added, false if already present</returns>
         public bool AddIfNotContains(T item, IEqualityComparer<T> comparer = null)
         {
             comparer ??= EqualityComparer<T>.Default;
@@ -748,9 +748,9 @@ namespace DataStructure
             return true;
         }
 
-        /// <summary>Restituisce elementi univoci nell'array</summary>
-        /// <param name="comparer">Comparatore per l'uguaglianza (opzionale)</param>
-        /// <returns>Nuovo array con elementi distinti</returns>
+        /// <summary>Returns unique elements in the array</summary>
+        /// <param name="comparer">Equality comparer (optional)</param>
+        /// <returns>New array with distinct elements</returns>
         public DynamicArray<T> Distinct(IEqualityComparer<T> comparer = null)
         {
             comparer ??= EqualityComparer<T>.Default;
@@ -765,11 +765,11 @@ namespace DataStructure
         }
         #endregion
 
-        #region Verifiche e confronti
-        /// <summary>Verifica se tutti gli elementi soddisfano una condizione</summary>
-        /// <param name="match">Predicato da verificare</param>
-        /// <returns>True se tutti soddisfano la condizione</returns>
-        /// <exception cref="ArgumentNullException">Se match è null</exception>
+        #region Checks and comparisons
+        /// <summary>Checks if all elements satisfy a condition</summary>
+        /// <param name="match">Predicate to verify</param>
+        /// <returns>True if all satisfy the condition</returns>
+        /// <exception cref="ArgumentNullException">If match is null</exception>
         public bool TrueForAll(Predicate<T> match)
         {
             if (match == null)
@@ -782,11 +782,11 @@ namespace DataStructure
             return true;
         }
 
-        /// <summary>Confronta due array per verificare l'uguaglianza sequenziale</summary>
-        /// <param name="other">Array da confrontare</param>
-        /// <param name="comparer">Comparatore per l'uguaglianza (opzionale)</param>
-        /// <returns>True se gli array sono uguali</returns>
-        /// <exception cref="ArgumentNullException">Se other è null</exception>
+        /// <summary>Compares two arrays for sequential equality</summary>
+        /// <param name="other">Array to compare</param>
+        /// <param name="comparer">Equality comparer (optional)</param>
+        /// <returns>True if arrays are equal</returns>
+        /// <exception cref="ArgumentNullException">If other is null</exception>
         public bool SequenceEqual(DynamicArray<T> other, IEqualityComparer<T> comparer = null)
         {
             if (other == null)
@@ -805,8 +805,8 @@ namespace DataStructure
         }
         #endregion
 
-        #region Helper privati
-        // Garantisce spazio sufficiente per nuovi elementi
+        #region Private helpers
+        // Ensures sufficient space for new elements
         private void EnsureSpace(int needed)
         {
             if (Count + needed <= Capacity) return;
@@ -815,7 +815,7 @@ namespace DataStructure
             ResizeBuffer(newCap);
         }
 
-        // Riduce la capacità se sotto la soglia
+        // Reduces capacity if below threshold
         private void MaybeShrink()
         {
             if (Capacity <= 4) return;
@@ -826,7 +826,7 @@ namespace DataStructure
                 ResizeBuffer(newCap);
         }
 
-        // Ridimensiona il buffer interno
+        // Resizes internal buffer
         private void ResizeBuffer(int newCapacity)
         {
             var newBuf = new T[newCapacity];
@@ -835,7 +835,7 @@ namespace DataStructure
             Capacity = newCapacity;
         }
 
-        // Inverte gli elementi in un intervallo
+        // Reverses elements in a range
         private void Reverse(int start, int end)
         {
             while (start < end)
@@ -846,7 +846,7 @@ namespace DataStructure
             }
         }
 
-        // Helper per verificare i tipi numerici
+        // Helper to check numeric types
         private static bool IsNumericType(Type type)
         {
             switch (Type.GetTypeCode(type))
@@ -869,10 +869,10 @@ namespace DataStructure
         }
         #endregion
 
-        #region Indicizzatore
-        /// <summary>Accesso agli elementi per indice</summary>
-        /// <param name="index">Indice dell'elemento</param>
-        /// <exception cref="ArgumentOutOfRangeException">Se l'indice è fuori range</exception>
+        #region Indexer
+        /// <summary>Element access by index</summary>
+        /// <param name="index">Element index</param>
+        /// <exception cref="ArgumentOutOfRangeException">If index is out of range</exception>
         public T this[int index]
         {
             get => index < Count ?
@@ -892,7 +892,7 @@ namespace DataStructure
     public static class DinamicArrayStringExtensions
     {
         /// <summary>
-        /// Converte tutte le stringhe nell'array in lowercase
+        /// Converts all strings in the array to lowercase
         /// </summary>
         public static void ToLower(this DynamicArray<string> array)
         {
@@ -905,7 +905,7 @@ namespace DataStructure
         }
 
         /// <summary>
-        /// Converte tutte le stringhe nell'array in uppercase
+        /// Converts all strings in the array to uppercase
         /// </summary>
         public static void ToUpper(this DynamicArray<string> array)
         {
@@ -918,12 +918,12 @@ namespace DataStructure
         }
 
         /// <summary>
-        /// Converte le stringhe in un intervallo specifico
+        /// Converts strings in a specific range
         /// </summary>
-        /// <param name="startIndex">Indice di partenza</param>
-        /// <param name="count">Numero di elementi da convertire</param>
-        /// <param name="culture">Cultura da usare (opzionale)</param>
-        /// <param name="toUpper">True per uppercase, false per lowercase</param>
+        /// <param name="startIndex">Starting index</param>
+        /// <param name="count">Number of elements to convert</param>
+        /// <param name="culture">Culture to use (optional)</param>
+        /// <param name="toUpper">True for uppercase, false for lowercase</param>
         public static void ChangeCaseRange(
             this DynamicArray<string> array,
             int startIndex,
@@ -949,5 +949,4 @@ namespace DataStructure
             }
         }
     }
-
 }
