@@ -153,6 +153,13 @@ namespace DataStructure
                     Add(item);
             }
         }
+        public void AddRange(T[] values)
+        {
+            if (values == null)
+                throw new ArgumentNullException(nameof(values));
+
+            AddRange(new ReadOnlySpan<T>(values));
+        }
         #endregion
 
         #region Insert operations
@@ -261,25 +268,22 @@ namespace DataStructure
         /// <param name="startIndex">Start index</param>
         /// <param name="endIndex">End index (inclusive)</param>
         /// <exception cref="ArgumentOutOfRangeException">If indices are invalid</exception>
-        public void RemoveRange(int startIndex, int endIndex)
+        public void RemoveRange(int startIndex, int count)
         {
             if (startIndex < 0 || startIndex >= Count)
                 throw new ArgumentOutOfRangeException(nameof(startIndex));
-            if (endIndex < 0 || endIndex >= Count)
-                throw new ArgumentOutOfRangeException(nameof(endIndex));
-            if (startIndex > endIndex)
-                throw new ArgumentException("startIndex must be ≤ endIndex", nameof(startIndex));
+            if (count < 0 || startIndex + count > Count)
+                throw new ArgumentOutOfRangeException(nameof(count));
 
+            int endIndex = startIndex + count - 1;
             int removeCount = endIndex - startIndex + 1;
             int tailCount = Count - endIndex - 1;
 
-            // Shift subsequent elements
             if (tailCount > 0)
                 _buffer.AsSpan(endIndex + 1, tailCount).CopyTo(_buffer.AsSpan(startIndex));
 
             Count -= removeCount;
 
-            // Clear references
             if (!typeof(T).IsValueType)
                 Array.Clear(_buffer, Count, removeCount);
 
@@ -644,7 +648,15 @@ namespace DataStructure
             if (toIndex < 0 || toIndex >= Count)
                 throw new ArgumentOutOfRangeException(nameof(toIndex));
 
+            if (fromIndex == toIndex) return;
+
             T item = _buffer[fromIndex];
+
+            if (toIndex > fromIndex)
+            {
+                // No adjustment needed - removal happens first
+            }
+
             RemoveAt(fromIndex);
             Insert(toIndex, item);
         }
@@ -875,15 +887,16 @@ namespace DataStructure
         /// <exception cref="ArgumentOutOfRangeException">If index is out of range</exception>
         public T this[int index]
         {
-            get => index < Count ?
-                _buffer[index] :
-                throw new ArgumentOutOfRangeException(nameof(index));
-
+            get
+            {
+                if (index < 0 || index >= Count)
+                    throw new ArgumentOutOfRangeException(nameof(index));
+                return _buffer[index];
+            }
             set
             {
-                if (index >= Count)
+                if (index < 0 || index >= Count)
                     throw new ArgumentOutOfRangeException(nameof(index));
-
                 _buffer[index] = value;
             }
         }
