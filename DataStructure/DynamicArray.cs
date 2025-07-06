@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace DataStructure
 {
@@ -16,7 +17,7 @@ namespace DataStructure
         private const int GrowthFactor = 2;           // Growth factor when expanding
         private const double ShrinkThreshold = 0.25;  // Threshold for capacity reduction
 
-        private T[] _buffer;                         // Internal storage buffer
+        private T[] _buffer;                          // Internal storage buffer
         #endregion
 
         #region Public properties
@@ -115,10 +116,18 @@ namespace DataStructure
         #region Add operations
         /// <summary>Adds an element to the end of the array</summary>
         /// <param name="value">Element to add</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(T value)
         {
-            EnsureSpace(1);
-            _buffer[Count++] = value;
+            int idx = Count;                       // copia locale: meno reload
+            if ((uint)idx < (uint)Capacity)        // fast‑path: c’è spazio
+            {
+                _buffer[idx] = value;
+                Count = idx + 1;
+                return;
+            }
+
+            AddWithResize(value);                  // slow‑path separata (non inlinata)
         }
 
         /// <summary>Adds a sequence of elements from a span</summary>
@@ -169,18 +178,27 @@ namespace DataStructure
         /// <exception cref="ArgumentOutOfRangeException">If index is out of range</exception>
         public void Insert(int index, T value)
         {
-            if (index < 0 || index > Count)
+            // un solo controllo di range: (uint) elimina i due branch separati
+            if ((uint)index > (uint)Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            EnsureSpace(1);
+            // Fast‑path: append è identico a Add, evitiamo la copia del tutto
+            if (index == Count)
+            {
+                Add(value);          // Add() chiama già EnsureSpace
+                return;
+            }
 
-            // Shift elements to make space
-            if (index < Count)
-                _buffer.AsSpan(index, Count - index).CopyTo(_buffer.AsSpan(index + 1));
+            EnsureSpace(1);          // garantiamo spazio prima di spostare
+
+            // Array.Copy usa memmove + vettorizzazione (SIMD) per molti tipi,
+            // ed è più veloce di Span.CopyTo su grandi blocchi.
+            Array.Copy(_buffer, index, _buffer, index + 1, Count - index);
 
             _buffer[index] = value;
             Count++;
         }
+
 
         /// <summary>Inserts a sequence of elements at the specified position</summary>
         /// <param name="index">Starting index</param>
@@ -191,28 +209,41 @@ namespace DataStructure
         {
             if (items == null)
                 throw new ArgumentNullException(nameof(items));
-            if (index < 0 || index > Count)
+            if ((uint)index > (uint)Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            // Optimization for collections with known size
-            if (items is ICollection<T> collection)
+            // Prendiamo subito Count se possibile, per non enumerare due volte
+            int newItemsCount;
+            if (items is ICollection<T> col)
             {
-                int newItemsCount = collection.Count;
+                newItemsCount = col.Count;
+                if (newItemsCount == 0) return;            // niente da fare
                 EnsureSpace(newItemsCount);
 
-                // Shift existing elements
-                if (Count > index)
+                // Sposta la “coda” in un colpo solo
+                if (index < Count)
                     Array.Copy(_buffer, index, _buffer, index + newItemsCount, Count - index);
 
-                collection.CopyTo(_buffer, index);
+                col.CopyTo(_buffer, index);
                 Count += newItemsCount;
             }
             else
             {
-                foreach (var item in items)
-                    Insert(index++, item);
+                // Fallback: materializziamo in una List<T> una sola volta
+                var list = items as List<T> ?? new List<T>(items);
+                newItemsCount = list.Count;
+                if (newItemsCount == 0) return;
+
+                EnsureSpace(newItemsCount);
+
+                if (index < Count)
+                    Array.Copy(_buffer, index, _buffer, index + newItemsCount, Count - index);
+
+                list.CopyTo(_buffer, index);
+                Count += newItemsCount;
             }
         }
+
         #endregion
 
         #region Remove operations
@@ -270,25 +301,25 @@ namespace DataStructure
         /// <exception cref="ArgumentOutOfRangeException">If indices are invalid</exception>
         public void RemoveRange(int startIndex, int count)
         {
-            if (startIndex < 0 || startIndex >= Count)
+            if ((uint)startIndex >= (uint)Count)
                 throw new ArgumentOutOfRangeException(nameof(startIndex));
             if (count < 0 || startIndex + count > Count)
                 throw new ArgumentOutOfRangeException(nameof(count));
 
-            int endIndex = startIndex + count - 1;
-            int removeCount = endIndex - startIndex + 1;
-            int tailCount = Count - endIndex - 1;
+            if (count == 0) return;
 
-            if (tailCount > 0)
-                _buffer.AsSpan(endIndex + 1, tailCount).CopyTo(_buffer.AsSpan(startIndex));
+            int tail = Count - startIndex - count;
+            if (tail > 0)
+                Array.Copy(_buffer, startIndex + count, _buffer, startIndex, tail);
 
-            Count -= removeCount;
+            Count -= count;
 
             if (!typeof(T).IsValueType)
-                Array.Clear(_buffer, Count, removeCount);
+                Array.Clear(_buffer, Count, count);   // pulisce solo l’area “orfana”
 
             MaybeShrink();
         }
+
 
         /// <summary>Removes all elements that satisfy a condition</summary>
         /// <param name="match">Predicate to filter elements</param>
@@ -299,28 +330,25 @@ namespace DataStructure
             if (match == null)
                 throw new ArgumentNullException(nameof(match));
 
-            int freeIndex = 0;
-            // Filter elements to keep
-            for (int i = 0; i < Count; i++)
-            {
-                if (!match(_buffer[i]))
-                {
-                    _buffer[freeIndex++] = _buffer[i];
-                }
-            }
+            int free = 0;
+            var span = _buffer.AsSpan(0, Count);
 
-            int removed = Count - freeIndex;
-            if (removed > 0)
-            {
-                // Clear removed elements
-                if (!typeof(T).IsValueType)
-                    Array.Clear(_buffer, freeIndex, removed);
+            // due indici: i = lettura, free = scrittura
+            for (int i = 0; i < span.Length; i++)
+                if (!match(span[i]))
+                    span[free++] = span[i];
 
-                Count = freeIndex;
-                MaybeShrink();
-            }
+            int removed = Count - free;
+            if (removed == 0) return 0;
+
+            if (!typeof(T).IsValueType)
+                Array.Clear(_buffer, free, removed);
+
+            Count = free;
+            MaybeShrink();
             return removed;
         }
+
 
         /// <summary>Completely clears the array</summary>
         public void Clear()
@@ -429,11 +457,16 @@ namespace DataStructure
         /// <exception cref="ArgumentOutOfRangeException">If start is out of range</exception>
         public int IndexOf(T item, int start = 0, IEqualityComparer<T> comparer = null)
         {
-            if (start < 0 || start >= Count)
+            if ((uint)start >= (uint)Count)          // evita due controlli separati
                 throw new ArgumentOutOfRangeException(nameof(start));
 
-            comparer ??= EqualityComparer<T>.Default;
+            // Fast‑path: comparer = EqualityComparer<T>.Default
+            // Array.IndexOf è implementato in C++ e usa vettorizzazione (SIMD)
+            // per i tipi primitivi, quindi batte un ciclo C# puro.
+            if (comparer == null || ReferenceEquals(comparer, EqualityComparer<T>.Default))
+                return Array.IndexOf(_buffer, item, start, Count - start);
 
+            // Fallback per comparer personalizzato (stesso comportamento di prima)
             for (int i = start; i < Count; i++)
                 if (comparer.Equals(_buffer[i], item))
                     return i;
@@ -447,14 +480,15 @@ namespace DataStructure
         /// <returns>Element index or -1 if not found</returns>
         public int LastIndexOf(T item, IEqualityComparer<T> comparer = null)
         {
-            comparer ??= EqualityComparer<T>.Default;
+            if (comparer == null || ReferenceEquals(comparer, EqualityComparer<T>.Default))
+                return Array.LastIndexOf(_buffer, item, Count - 1, Count);
 
             for (int i = Count - 1; i >= 0; i--)
                 if (comparer.Equals(_buffer[i], item))
                     return i;
-
             return -1;
         }
+
 
         /// <summary>Checks if an element is present</summary>
         /// <param name="item">Element to search</param>
@@ -503,13 +537,16 @@ namespace DataStructure
             if (match == null)
                 throw new ArgumentNullException(nameof(match));
 
-            var result = new DynamicArray<T>();
-            for (int i = 0; i < Count; i++)
-                if (match(_buffer[i]))
-                    result.Add(_buffer[i]);
+            var result = new DynamicArray<T>(4);      // piccola ma raddoppia in fretta
+            var span = _buffer.AsSpan(0, Count);
+
+            for (int i = 0; i < span.Length; i++)
+                if (match(span[i]))
+                    result.Add(span[i]);
 
             return result;
         }
+
 
         /// <summary>Finds the index of the first element that satisfies a condition</summary>
         /// <param name="match">Predicate to filter elements</param>
@@ -561,14 +598,17 @@ namespace DataStructure
         /// <summary>Executes an action for each element</summary>
         /// <param name="action">Action to execute</param>
         /// <exception cref="ArgumentNullException">If action is null</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ForEach(Action<T> action)
         {
             if (action == null)
                 throw new ArgumentNullException(nameof(action));
 
-            for (int i = 0; i < Count; i++)
-                action(_buffer[i]);
+            var span = _buffer.AsSpan(0, Count);
+            for (int i = 0; i < span.Length; i++)
+                action(span[i]);
         }
+
         #endregion
 
         #region Utilities and miscellaneous operations
@@ -818,6 +858,17 @@ namespace DataStructure
         #endregion
 
         #region Private helpers
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void AddWithResize(T value)
+        {
+            // Cresci come List<T>: max(Capacity*2, 4) finché non basta
+            int newCap = Capacity == 0 ? 4 : Capacity * GrowthFactor;
+            if (newCap < Count + 1) newCap = Count + 1;
+            ResizeBuffer(newCap);
+
+            _buffer[Count] = value;                // ora c’è sicuramente spazio
+            Count++;
+        }
         // Ensures sufficient space for new elements
         private void EnsureSpace(int needed)
         {
